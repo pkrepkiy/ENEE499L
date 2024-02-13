@@ -35,39 +35,51 @@ if isempty(thresholdMultiplier)
 else
 
     % Check if the input is a valid integer
-    if isnan(thresholdMultiplier) || (thresholdMultiplier > 1) || (thresholdMultiplier < 0)
+    if isnan(thresholdMultiplier) || (thresholdMultiplier >= 1) || (thresholdMultiplier <= 0)
 
         error('Invalid input. Please enter a valid number between 0 and 1.');
     end
 end
 
-fprintf('\nChange number of edge markers as needed, must be an even number (recommended 360)\nThe object outline is formed out of a border of N radially distributed edge markers.\n\n')
+% fprintf('\nChange number of edge markers as needed, must be an even number (recommended 360)\nThe object outline is formed out of a border of N radially distributed edge markers.\n\n')
+% 
+% 
+% edgeMarkerNum = input('Enter number of edge markers or enter to skip (default is 360): ');
+% 
+% if isempty(edgeMarkerNum)
+%     disp('Using default value: 360');
+%    edgeMarkerNum = 360;
+% else
+% 
+%     % Check if the input is a valid integer
+%     if isnan(edgeMarkerNum) || (mod(edgeMarkerNum,2) ~= 0) || (edgeMarkerNum < 2)
+% 
+%         error('Invalid input. Please enter a valid, even integer.');
+%     end
+% end
+
+edgeMarkerNum = 360;
 
 
-edgeMarkerNum = input('Enter number of edge markers or enter to skip (default is 360): ');
+fprintf('\nChange the depth of search for object (search sensitivity).\nThis value searches N pixels past\nthe first pixel with a value lower than the threshold. Increase for beam\nimages that are less dense or have more holes.\n\n')
 
-if isempty(edgeMarkerNum)
-    disp('Using default value: 360');
-   edgeMarkerNum = 360;
+searchDepth = input('Enter search depth or enter to skip (default is 20): ');
+
+
+if isempty(searchDepth)
+    fprintf('\nUsing default value: 20\n');
+   searchDepth = 20;
 else
 
     % Check if the input is a valid integer
-    if isnan(edgeMarkerNum) || (mod(edgeMarkerNum,2) ~= 0) || (edgeMarkerNum < 2)
-       
-        error('Invalid input. Please enter a valid, even integer.');
+    if isnan(searchDepth) || (searchDepth <= 0)
+
+        error('Invalid input. Please enter a valid number greater than 0');
     end
 end
 
 
 % TODO:
-
-
-%
-% Change the depth of search for object. This value searches N pixels past
-% the first pixel with a value lower than the threshold. Increase for beam
-% images that are less dense or have more holes.
-%
-% searchDepth = searchDepth.Value ;  %20;
 
 
 %
@@ -118,87 +130,79 @@ for i = 1:length(files)
         %
         % Set gain threshold for filter and number of edge markers
         %
-        % threshold = maxIntensity-(maxIntensity/sqrt(2)); % RMS
-
         threshold = maxIntensity-(maxIntensity*thresholdMultiplier);
 
-        %
-        % Change number of edge markers as needed, up to 360
-        %
-        % edgeMarkerNum = 360;
 
-
-
-        edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum);
+        edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum,searchDepth);
 
 
 
         %
         % Get min and max coordinates of the edge outline
         %
-        minObjectX = min(edgeCoords(:,1));
-        maxObjectX = max(edgeCoords(:,1));
-        minObjectY = min(edgeCoords(:,2));
-        maxObjectY = max(edgeCoords(:,2));
-
-        %
+        % minObjectX = min(edgeCoords(:,1));
+        % maxObjectX = max(edgeCoords(:,1));
+        % minObjectY = min(edgeCoords(:,2));
+        % maxObjectY = max(edgeCoords(:,2));
+        % 
+        % %
         % Object / max Intensity rejection
         %
-
-        %
-        % Reject beam objects that are smaller than a particular length in
-        % X and Y, OR if the max Intensity is within 5 pixels of the border
-        %
-        if (yMaxCoord < 5 || yMaxCoord > size(blackImage,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(blackImage,2) - 5) || (((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY))
-
-           
-            %
-            % Define a temporary image to find a lower maximum (bright FOD
-            % rejection)
-            %
-
-            %
-            % Create gaussian filter
-            %
-            sigma = 1;
-            h = fspecial('gaussian', [5 5], sigma);
-            
-            %
-            % Create a temporary smoothed image to reject bright FOD
-            %
-            smoothedImage = imfilter(grayImage, h, 'replicate');
-
-            %
-            % Keep decreasing the "maximum" value until larger objects are found 
-            %
-            while (yMaxCoord < 5 || yMaxCoord > size(blackImage,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(blackImage,2) - 5) || ((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY)
-
-                %
-                % Set the current maximum to NaN to find a new max.
-                %
-                smoothedImage(yMaxCoord,xMaxCoord) = NaN;
-
-                [maxIntensity, linearIndex] = max(smoothedImage(:));
-
-                threshold = maxIntensity-(maxIntensity*thresholdMultiplier);
-
-
-                [yMaxCoord, xMaxCoord] = ind2sub(size(smoothedImage), linearIndex);
-
-                edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum,searchDepth);
-
-
-                %
-                % Get new min and max coordinates of the edge outline
-                %
-                minObjectX = min(edgeCoords(:,1));
-                maxObjectX = max(edgeCoords(:,1));
-                minObjectY = min(edgeCoords(:,2));
-                maxObjectY = max(edgeCoords(:,2));
-
-            end
-
-        end
+        % 
+        % %
+        % % Reject beam objects that are smaller than a particular length in
+        % % X and Y, OR if the max Intensity is within 5 pixels of the border
+        % %
+        % if (yMaxCoord < 5 || yMaxCoord > size(blackImage,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(blackImage,2) - 5) || (((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY))
+        % 
+        % 
+        %     %
+        %     % Define a temporary image to find a lower maximum (bright FOD
+        %     % rejection)
+        %     %
+        % 
+        %     %
+        %     % Create gaussian filter
+        %     %
+        %     sigma = 1;
+        %     h = fspecial('gaussian', [5 5], sigma);
+        % 
+        %     %
+        %     % Create a temporary smoothed image to reject bright FOD
+        %     %
+        %     smoothedImage = imfilter(grayImage, h, 'replicate');
+        % 
+        %     %
+        %     % Keep decreasing the "maximum" value until larger objects are found 
+        %     %
+        %     while (yMaxCoord < 5 || yMaxCoord > size(blackImage,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(blackImage,2) - 5) || ((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY)
+        % 
+        %         %
+        %         % Set the current maximum to NaN to find a new max.
+        %         %
+        %         smoothedImage(yMaxCoord,xMaxCoord) = NaN;
+        % 
+        %         [maxIntensity, linearIndex] = max(smoothedImage(:));
+        % 
+        %         threshold = maxIntensity-(maxIntensity*thresholdMultiplier);
+        % 
+        % 
+        %         [yMaxCoord, xMaxCoord] = ind2sub(size(smoothedImage), linearIndex);
+        % 
+        %         edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum,searchDepth);
+        % 
+        % 
+        %         %
+        %         % Get new min and max coordinates of the edge outline
+        %         %
+        %         minObjectX = min(edgeCoords(:,1));
+        %         maxObjectX = max(edgeCoords(:,1));
+        %         minObjectY = min(edgeCoords(:,2));
+        %         maxObjectY = max(edgeCoords(:,2));
+        % 
+        %     end
+        % 
+        % end
 
         [X,Y]=meshgrid(1:size(blackImage,2), 1:size(blackImage,1));
 
@@ -359,7 +363,7 @@ for i = 1:length(files)
 
         hold off;
 
-        subplot(1,2,2), imshow(cropImage), title('Object Processing')
+        subplot(1,2,2), imshow(blackImage), title('Object Processing')
 
         hold on
         plot(X(inside),Y(inside),'rd','MarkerSize',1)
@@ -393,12 +397,11 @@ function [blackImage, xCoord, yCoord, maxIntensity] = fiducials(grayImage,thresh
 
 end
 
+function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, numMarkers,searchDepth)
 
-function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, numMarkers)
 
-        %
         % Iterate over angles to evenly divide the circle
-        %
+        
         angle = linspace(0, 360, numMarkers + 1);
         angle = angle(1:end-1);  % Exclude the last element to avoid duplicates
 
@@ -415,7 +418,7 @@ function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, nu
     
 
             % Loop to move along the direction until the threshold condition is met
-            while (newCoord(2) + 10*dy <= size(blackImage,1)) && (newCoord(1) + 10*dx <= size(blackImage,2))
+            while ((newCoord(2) + searchDepth*dy <= size(blackImage,1) && newCoord(2) + searchDepth*dy > 1)) && ((newCoord(1) + searchDepth*dx <= size(blackImage,2)) && (newCoord(1) + searchDepth*dx > 1))
 
                 % Check current position
                 if blackImage(round(newCoord(2)), round(newCoord(1))) < threshold
@@ -424,12 +427,12 @@ function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, nu
                     checkVar = newCoord + [dx, dy];
                     count = 1;
 
-                    while count < 20 && blackImage(round(checkVar(2)), round(checkVar(1))) < threshold
+                    while count < searchDepth && blackImage(round(checkVar(2)), round(checkVar(1))) < threshold
                         checkVar = checkVar + [dx, dy];
                         count = count + 1;
                     end
 
-                    if count == 20
+                    if count == searchDepth
                         break;
                     end
                 end
