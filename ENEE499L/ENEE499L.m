@@ -82,14 +82,37 @@ end
 % TODO:
 
 
-%
-% Define the threshold to reject objects that have less length
-% along X and Y than the reject value. Any object that has X or Y distance
-% less than N will be rejected. Increase this value if there is a lot of
-% bright FOD or artifacts.
-% %
-% rejectThresholdX = rejectThresholdX.Value ; %25;
-% rejectThresholdY = rejectThresholdY.Value ; %25;
+fprintf('\nDefine the threshold to reject objects that have less length\nalong X and Y than the reject value. Any object that has X or Y distance\nless than N will be rejected. Increase this value if there is a lot of\nbright FOD or artifacts. Decrease for slits or smaller beams.\n\n')
+
+rejectThresholdX = input('Enter reject size threshold in X or enter to skip (default is 15): ');
+
+if isempty(rejectThresholdX)
+    fprintf('\nUsing default X reject value: 15\n\n');
+    rejectThresholdX = 15;
+else
+
+    % Check if the input is a valid integer
+    if isnan(searchDepth) || (searchDepth <= 0)
+
+        error('Invalid input. Please enter a valid number greater than 0');
+    end
+end
+
+rejectThresholdY = input('Enter reject size threshold in Y or enter to skip (default is 15): ');
+
+if isempty(rejectThresholdY)
+    fprintf('\nUsing default Y reject value: 15\n');
+    rejectThresholdY = 15;
+else
+
+    % Check if the input is a valid integer
+    if isnan(searchDepth) || (searchDepth <= 0)
+
+        error('Invalid input. Please enter a valid number greater than 0');
+    end
+end
+
+
 
 
 
@@ -102,29 +125,79 @@ disp(['Searching for files in working directory ' pwd ' ...'])
 %
 % Search all files in the working directory
 %
+
+count = 0;
+
 for i = 1:length(files)
 
     currFileName = files(i).name;
     [~, ~, fileExtension] = fileparts(currFileName);
     
     if strcmpi(fileExtension, '.tif')
+
+        count = count +1;
         
         image = imread(currFileName);
         grayImage = im2gray(image);
-        filteredImage = medfilt2(grayImage, [3, 3]);
-        edgeImage = edge(filteredImage, 'Canny');
         
-        
-        %
-        % Find coordinates and value of the maximum in the image
-        % TODO: Expand this to search for largest contiguous object
-        % to filter out FOD and random noise
-        %
-
         fprintf('\n')
-        disp(['Processing image' num2str(currFileName) ' ...'])
+        disp(['Processing image ' num2str(currFileName) ' ...'])
 
-        [blackImage, xMaxCoord, yMaxCoord, maxIntensity] = fiducials(grayImage,thresholdMultiplier);
+    
+        %
+        % Find max and set the initial cropped image
+        %
+        [maxIntensity, linearIndex] = max(grayImage(:));
+        [yMaxCoord, xMaxCoord] = ind2sub(size(grayImage), linearIndex);
+
+
+
+        %
+        % Reject maximum intensities that are within 5 pixels of the border
+        %
+        if (yMaxCoord < 5 || yMaxCoord > size(gray,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(grayImage,2) - 5)
+
+            
+            %
+            % Define a temporary image to find a lower maximum (bright FOD
+            % rejection)
+            %
+        
+            %
+            % Create gaussian filter
+            %
+            sigma = 1;
+            h = fspecial('gaussian', [5 5], sigma);
+        
+            %
+            % Create a temporary smoothed image to reject bright FOD
+            %
+            smoothedImage = imfilter(grayImage, h, 'replicate');
+        
+            %
+            % Keep decreasing the "maximum" value until larger objects are found 
+            %
+            while (yMaxCoord < 5 || yMaxCoord > size(grayImage,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(grayImage,2) - 5)
+            
+           
+                smoothedImage(yMaxCoord,xMaxCoord) = NaN;
+        
+                [maxIntensity, linearIndex] = max(smoothedImage(:));
+        
+                [yMaxCoord, xMaxCoord] = ind2sub(size(smoothedImage), linearIndex);
+        
+            end
+        end
+        
+
+
+        
+        binaryMask = grayImage < maxIntensity- (maxIntensity*thresholdMultiplier);
+    
+        blackImage = grayImage;
+        
+        blackImage(binaryMask) = 0;  
+
 
 
         %
@@ -140,69 +213,71 @@ for i = 1:length(files)
         %
         % Get min and max coordinates of the edge outline
         %
-        % minObjectX = min(edgeCoords(:,1));
-        % maxObjectX = max(edgeCoords(:,1));
-        % minObjectY = min(edgeCoords(:,2));
-        % maxObjectY = max(edgeCoords(:,2));
-        % 
-        % %
+        minObjectX = min(edgeCoords(:,1));
+        maxObjectX = max(edgeCoords(:,1));
+        minObjectY = min(edgeCoords(:,2));
+        maxObjectY = max(edgeCoords(:,2));
+        
+        %
         % Object / max Intensity rejection
         %
-        % 
-        % %
-        % % Reject beam objects that are smaller than a particular length in
-        % % X and Y, OR if the max Intensity is within 5 pixels of the border
-        % %
-        % if (yMaxCoord < 5 || yMaxCoord > size(blackImage,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(blackImage,2) - 5) || (((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY))
-        % 
-        % 
-        %     %
-        %     % Define a temporary image to find a lower maximum (bright FOD
-        %     % rejection)
-        %     %
-        % 
-        %     %
-        %     % Create gaussian filter
-        %     %
-        %     sigma = 1;
-        %     h = fspecial('gaussian', [5 5], sigma);
-        % 
-        %     %
-        %     % Create a temporary smoothed image to reject bright FOD
-        %     %
-        %     smoothedImage = imfilter(grayImage, h, 'replicate');
-        % 
-        %     %
-        %     % Keep decreasing the "maximum" value until larger objects are found 
-        %     %
-        %     while (yMaxCoord < 5 || yMaxCoord > size(blackImage,1) - 5) || (xMaxCoord < 5 || xMaxCoord > size(blackImage,2) - 5) || ((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY)
-        % 
-        %         %
-        %         % Set the current maximum to NaN to find a new max.
-        %         %
-        %         smoothedImage(yMaxCoord,xMaxCoord) = NaN;
-        % 
-        %         [maxIntensity, linearIndex] = max(smoothedImage(:));
-        % 
-        %         threshold = maxIntensity-(maxIntensity*thresholdMultiplier);
-        % 
-        % 
-        %         [yMaxCoord, xMaxCoord] = ind2sub(size(smoothedImage), linearIndex);
-        % 
-        %         edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum,searchDepth);
-        % 
-        % 
-        %         %
-        %         % Get new min and max coordinates of the edge outline
-        %         %
-        %         minObjectX = min(edgeCoords(:,1));
-        %         maxObjectX = max(edgeCoords(:,1));
-        %         minObjectY = min(edgeCoords(:,2));
-        %         maxObjectY = max(edgeCoords(:,2));
-        % 
-        %     end
-        % 
-        % end
+       
+
+
+        %
+        % Reject beam objects that are smaller than a particular length in
+        % X and Y, 25 by default
+        %
+        if ((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY)
+        
+        
+            %
+            % Define a temporary image to find a lower maximum (bright FOD
+            % rejection)
+            %
+        
+            %
+            % Create gaussian filter
+            %
+            sigma = 1;
+            h = fspecial('gaussian', [5 5], sigma);
+        
+            %
+            % Create a temporary smoothed image to reject bright FOD
+            %
+            smoothedImage = imfilter(grayImage, h, 'replicate');
+        
+            %
+            % Keep decreasing the "maximum" value until larger objects are found 
+            %
+            while ((maxObjectX - minObjectX) < rejectThresholdX) || ((maxObjectY - minObjectY) < rejectThresholdY)
+        
+                %
+                % Set the current maximum to NaN to find a new max.
+                %
+                smoothedImage(yMaxCoord,xMaxCoord) = NaN;
+        
+                [maxIntensity, linearIndex] = max(smoothedImage(:));
+        
+                threshold = maxIntensity-(maxIntensity*thresholdMultiplier);
+        
+        
+                [yMaxCoord, xMaxCoord] = ind2sub(size(smoothedImage), linearIndex);
+        
+                edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum,searchDepth);
+        
+        
+                %
+                % Get new min and max coordinates of the edge outline
+                %
+                minObjectX = min(edgeCoords(:,1));
+                maxObjectX = max(edgeCoords(:,1));
+                minObjectY = min(edgeCoords(:,2));
+                maxObjectY = max(edgeCoords(:,2));
+        
+            end
+        
+        end
 
         [X,Y]=meshgrid(1:size(blackImage,2), 1:size(blackImage,1));
 
@@ -213,6 +288,30 @@ for i = 1:length(files)
         % Calculate the Geometric centroid in X and Y
         GeometricCentroidX = mean(X(inside));
         GeometricCentroidY = mean(Y(inside));
+
+
+        %
+        % Create new edge coordinates based on the geometric centroid (to
+        % prevent shadows)
+        %
+
+        edgeCoords = createEdgeMarkers(GeometricCentroidX, GeometricCentroidY, blackImage, threshold, edgeMarkerNum,searchDepth);
+        
+
+        [X,Y]=meshgrid(1:size(blackImage,2), 1:size(blackImage,1));
+
+
+        % Check which points are inside the object's outline
+        inside = inpolygon(X(:), Y(:), edgeCoords(:,1), edgeCoords(:,2));
+        
+
+        %
+        % Calculate NEW geometric centroids
+        %
+
+        GeometricCentroidX = mean(X(inside));
+        GeometricCentroidY = mean(Y(inside));
+
 
         propInside = reshape(inside,size(blackImage,1),size(blackImage,2));
 
@@ -230,21 +329,31 @@ for i = 1:length(files)
 
 
 
+        % DEBUG:
+
+%         figure, imshow(cropImage)
+%         hold on, plot(XMoment,YMoment,'r*')
+%         plot(edgeCoords(:,1),edgeCoords(:,2))
+
+
+
         %
         % Calculate moment in X
         %
 
 
         %
-        % Initialize moment in X
+        % Initialize moment in X and iteration variable
         %
         XMoment = 0;
+        iter = 0;
 
 
         %
         % Move/scan down the image vertically
         %
         for j = round(minObjectY):round(maxObjectY)
+
 
             %
             % Multiply each X index with the binary mask at that particular row,
@@ -272,6 +381,7 @@ for i = 1:length(files)
                 % Add up all X Moment coordinates for averaging later
                 %
                 XMoment = XMoment + RowMomentX;
+                iter = iter + 1;
 
                 
             end
@@ -279,9 +389,9 @@ for i = 1:length(files)
         end
 
         %
-        % Divide by number of iterations 
+        % Divide by number of non-zero iterations 
         %
-        XMoment = XMoment / size(round(minObjectY):round(maxObjectY),2);
+        XMoment = XMoment / iter;
 
 
         %
@@ -289,9 +399,10 @@ for i = 1:length(files)
         %
 
         %
-        % Initialize moment in X
+        % Initialize moment in Y and iteration variable
         %
         YMoment = 0;
+        iter = 0;
 
 
         %
@@ -326,6 +437,7 @@ for i = 1:length(files)
                 % Add up all X Moment coordinates for averaging later
                 %
                 YMoment = YMoment + ColMomentY;
+                iter = iter + 1;
 
                 
             end
@@ -333,9 +445,9 @@ for i = 1:length(files)
         end
 
         %
-        % Divide by number of iterations 
+        % Divide by number of non-zero iterations 
         %
-        YMoment = YMoment / size(round(minObjectX):round(maxObjectX),2);
+        YMoment = YMoment / iter;
 
 
         %
@@ -366,36 +478,22 @@ for i = 1:length(files)
         subplot(1,2,2), imshow(blackImage), title('Object Processing')
 
         hold on
+
+        plot(minObjectX,minObjectY,'yd')
+        plot(maxObjectX,maxObjectY,'yd')
+        plot(minObjectX,maxObjectY,'yd')
+        plot(maxObjectX,minObjectY,'yd')
+
         plot(X(inside),Y(inside),'rd','MarkerSize',1)
 
         legend('Inner object grid')
         hold off
-
-
-        end
-
+    
     end
 
-%
-% Uncomment for video animation:
-%
-% end
-
-
-
-function [blackImage, xCoord, yCoord, maxIntensity] = fiducials(grayImage,thresholdMultiplier)
-
-
-    [maxIntensity, linearIndex] = max(grayImage(:));
-    [yCoord, xCoord] = ind2sub(size(grayImage), linearIndex);
-    
-    binaryMask = grayImage < maxIntensity- (maxIntensity*thresholdMultiplier);
-
-    blackImage = grayImage;
-    
-    blackImage(binaryMask) = 0;  
-
 end
+
+
 
 function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, numMarkers,searchDepth)
 
