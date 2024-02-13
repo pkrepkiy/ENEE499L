@@ -1,0 +1,73 @@
+Contour plots
+
+3D plot
+
+sigma of X and sigma of Y
+
+Make sure images are 16 bit
+
+Second moment
+
+Can do project both in ImageJ and Matlab
+
+Making a montage of images
+
+
+
+
+Effective beam radius = sqrt(xxVar) + sqrt(yyVar) (only for round beam)
+The program should print xxVar and yyVar separately for non-round beams
+
+X and Y centroid / center of mass
+
+ImageJ: set measurements:
+Center of Mass
+Integrated density
+Skewness
+
+Make sure to crop the beam automatically before the moment calculations
+- Possibly crop around 3dB loss?
+
+Subtraction of background
+
+Moment calculator 
+- second moment of beam distribution
+- get x^2 Var and y^2 Var
+- This is used for effective beam dimension 
+
+Create a calibration look-up table- given calibration as a function of distance
+
+
+
+I understand the issue. All of the coordinate points INSIDE the beam object are NOT being counted in the sum. Only
+the border is being counted.
+
+Factors that can be adjusted:
+Number of edge markers (even number)
+Threshold of sensitivity (noise floor)
+Distance of beyond-checking (i.e. how many points to check beyond the first below the threshold)
+
+
+At first I found the maximum points
+
+I tried to find the edge points in N, E, S, W and NE, SE, NW, SW
+
+This was not enough so I transitioned to a radial approach to find N evenly spaced points around the edge of the object
+
+Calculating centroid was difficult at first because the points were denser in certain areas
+
+I solved this by identifying internal points
+
+The next issue was to reject high-intensity noise
+Another challenge was to find the intensity centroid from the geometric centroid of the beam
+
+
+
+----------
+Add mask to original array
+----------
+
+It took a while to develop a function to calculate the moment centroid of the beam, but I was successful.
+
+I learned about image masking
+
