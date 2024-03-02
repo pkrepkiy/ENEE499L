@@ -305,7 +305,7 @@ for i = 1:length(files)
         [X,Y]=meshgrid(1:size(blackImage,2), 1:size(blackImage,1));
 
 
-        % Check which points are inside the object's outline
+        % Find which points are inside the object's outline
         inside = inpolygon(X(:), Y(:), edgeCoords(:,1), edgeCoords(:,2));
         
 
@@ -316,10 +316,12 @@ for i = 1:length(files)
         GeometricCentroidX = mean(X(inside));
         GeometricCentroidY = mean(Y(inside));
 
-
+        % This creates a logical array- points inside the object are a "1"
+        % and points outside the object are a "0"
         propInside = reshape(inside,size(blackImage,1),size(blackImage,2));
 
-        cropImage = grayImage .* uint16(propInside);
+        % Mask the original image with the logical array
+        cropImage = uint32(grayImage) .* uint32(propInside);
 
 
         % Set zero values to NaN to be omitted from intensity centroid
@@ -333,63 +335,24 @@ for i = 1:length(files)
 
 
 
-        %% Calculate first moment in X
-
-        %
-        % Calculate moment in X
-        %
+        % Total pixel intensity sums
+        I_0 = sum(sum(cropImage(:,:)));
 
 
-        %
-        % Initialize moment in X and iteration variable
-        %
-        XMoment = 0;
-        iter = 0;
+        %% Calculate first moment in X and Y
 
+        % Create vectors
+        xList = uint32(1:size(cropImage,2));
 
-        %
-        % Move/scan down the image vertically
-        %
-        for j = round(minObjectY):round(maxObjectY)
+        yList = (uint32(1:size(cropImage,1)))';
 
+        yVec = round(minObjectY):round(maxObjectY);
 
-            %
-            % Multiply each X index with the binary mask at that particular row,
-            % Sum all X.
-            % (Here we are adding up all of the X coordinates that are
-            % included in the cropped beam image to calculate the first
-            % moment)
-            %
-            XCoord = uint16((1:size(cropImage,2))) .* uint16(propInside(j,:));
+        xVec = round(minObjectX):round(maxObjectX);
 
+        XMoment = sum(sum(cropImage(yVec,:) .* xList,2))/I_0;
 
-            %
-            % This gives the xCoordinate for the moment of that row
-            %
-            RowMomentX = sum(uint32(XCoord).* uint32(cropImage(j,:)))/sum(cropImage(j,:).* uint16(propInside(j,:)));
-
-
-            %
-            % Check if NOT DIV0
-            %
-            if ~isnan(RowMomentX)
-
-
-                %
-                % Add up all X Moment coordinates for averaging later
-                %
-                XMoment = XMoment + RowMomentX;
-                iter = iter + 1;
-
-                
-            end
-
-        end
-
-        %
-        % Divide by number of non-zero iterations 
-        %
-        XMoment = XMoment / iter;
+        YMoment = sum(sum(cropImage(:,xVec) .* yList,1))/I_0;
 
 
         %% Calculate first moment in Y
@@ -468,36 +431,21 @@ for i = 1:length(files)
         %
         for j = round(minObjectY):round(maxObjectY)
 
-
-            %
-            % Multiply each X index with the binary mask at that particular row,
-            % Sum all X.
-            % (Here we are adding up all of the X coordinates that are
-            % included in the cropped beam image to calculate the second
-            % moment)
-            %
+            % Get coordinates of all X value inside the given row
             X2Coord = uint16((1:size(cropImage,2))) .* uint16(propInside(j,:));
 
+            % Sum X coordinates squared with respective values at those
+            % coordinates in the row, divide by the sum of values in that
+            % row
 
-            %
-            % This gives the xCoordinate for the SECOND moment of that row
-            %
-            Row2MomentX = sum(uint32((X2Coord-XMoment).^2).* uint32(cropImage(j,:)))/sum(cropImage(j,:).* uint16(propInside(j,:)));
+            Row2MomentX = sum(uint32(X2Coord.^2).* uint32(cropImage(j,:)))/sum(cropImage(j,:).* uint16(propInside(j,:)));
 
 
-            %
-            % Check if NOT DIV0
-            %
             if ~isnan(Row2MomentX)
 
-
-                %
-                % Add up all X2 Moment coordinates for averaging later
-                %
                 X2Moment = X2Moment + Row2MomentX;
                 iter = iter + 1;
 
-                
             end
 
         end
@@ -540,7 +488,7 @@ for i = 1:length(files)
             %
             % This gives the yCoordinate for the moment of that row
             %
-            Col2MomentY = sum(uint32((Y2Coord-YMoment).^2).* uint32(cropImage(:,j)))/sum(cropImage(:,j).* uint16(propInside(:,j)));
+            Col2MomentY = sum(uint32(Y2Coord.^2).* uint32(cropImage(:,j)))/sum(cropImage(:,j).* uint16(propInside(:,j)));
 
 
             %
@@ -577,7 +525,9 @@ for i = 1:length(files)
         %
 
         figure(i)
-        subplot(1,2,1), imshow(grayImage), title(num2str(currFileName))
+        % subplot(1,2,1), 
+        
+        imshow(grayImage), title(num2str(currFileName))
     
         hold on
 
@@ -590,34 +540,40 @@ for i = 1:length(files)
 
         plot(X2Moment, Y2Moment,'mv','MarkerSize',25)
 
-        text(50, 50, ['First Moment in X: ' num2str(XMoment)], 'Color', 'red', 'FontSize', 10);
-        text(50, 30, ['First Moment in Y: ' num2str(YMoment)], 'Color', 'red', 'FontSize', 10);
-
-
-        text(50,90 , ['Second Moment in X: ' num2str(X2Moment)], 'Color', 'red', 'FontSize', 10);
-        text(50, 70, ['Second Moment in Y: ' num2str(Y2Moment)], 'Color', 'red', 'FontSize', 10);
-
+        % text(50, 50, ['First Moment in X: ' num2str(XMoment)], 'Color', 'red', 'FontSize', 10);
+        % text(50, 30, ['First Moment in Y: ' num2str(YMoment)], 'Color', 'red', 'FontSize', 10);
+        % 
+        % text(50, 90, ['Second Moment in X: ' num2str(X2Moment)], 'Color', 'red', 'FontSize', 10);
+        % text(50, 70, ['Second Moment in Y: ' num2str(Y2Moment)], 'Color', 'red', 'FontSize', 10);
+        
+        fprintf('\n')
+        disp(['First Moment in X: ' num2str(XMoment)])
+        disp(['First Moment in Y: ' num2str(YMoment)])
+        disp(['Second Moment in Y: ' num2str(Y2Moment)])
+        disp(['Second Moment in Y: ' num2str(Y2Moment)])
 
         plot(edgeCoords(:, 1), edgeCoords(:, 2), 'ro-','MarkerSize',3);
 
 %[num2str(edgeMarkerNum) ,' Edge Markers']
 
-        legend('Peak intensity','Geometric Centroid','First Moment','Second Moment')
+        % hold off;
 
-        hold off;
+        % subplot(1,2,2), imshow(blackImage), title('Object Processing')
 
-        subplot(1,2,2), imshow(blackImage), title('Object Processing')
-
-        hold on
+        % hold on
 
         plot(minObjectX,minObjectY,'cd')
         plot(maxObjectX,maxObjectY,'cd')
         plot(minObjectX,maxObjectY,'cd')
         plot(maxObjectX,minObjectY,'cd')
 
-        plot(X(inside),Y(inside),'rd','MarkerSize',1)
 
-        legend('Inner object grid')
+        legend('Peak intensity','Geometric Centroid','First Moment','Second Moment')
+
+
+        % plot(X(inside),Y(inside),'rd','MarkerSize',1)
+
+        % legend('Inner object grid')
         hold off
     
     end
