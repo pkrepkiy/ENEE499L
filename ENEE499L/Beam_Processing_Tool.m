@@ -1,7 +1,7 @@
 
 % Author: Peter Krepkiy (pkrepkiy@umd.edu, krepkiyp@yahoo.com), 
 
-% Last edit: February 12, 2024
+% Last edit: March 3, 2024
 
 % Revision: 0
 
@@ -21,11 +21,21 @@ close all; clear; clc
 
 warning('off','all')
 
-files = dir(fullfile(pwd, '*.*'));
+
+fprintf('Output image? (Defualt value: Y)\n')
+
+output_img = input('Y or N: ','s');
+
+if isempty(output_img)
+    output_img = 'Y';
+elseif (output_img ~= 'Y' && output_img ~= 'N')
+
+    error('Invalid input. Enter Y or N for image output')
+
+end
 
 
-
-fprintf('Set the threshold multiplier. The algorithm searches for pixels that \nare lower than this threshold to form the beam object. The formula is like so: \nthreshold = maxIntensity - maxIntensity*thresholdMultiplier. \nThis value must be between 0 and 1.\n\n');
+fprintf('\nSet the threshold multiplier. The algorithm searches for pixels that \nare lower than this threshold to form the beam object. The formula is like so: \nthreshold = maxIntensity - maxIntensity*thresholdMultiplier. \nThis value must be between 0 and 1.\n\n');
 
 thresholdMultiplier = input('Enter intensity cutoff threshold or enter to skip (default is 1/sqrt(2)): ');
 
@@ -106,8 +116,24 @@ disp(['Searching for files in working directory ' pwd ' ...'])
 
 
 %
-% Search all files in the working directory
+% Search all .tif files in the working directory
 %
+files = dir(fullfile(pwd, '*.tif'));
+
+
+if length(files) > 1
+
+    %
+    % Open a .csv object for output to a CSV if more than one .tif
+    %
+    csv_file = [datestr(now,'dd_mmm_yyyy_HH_MM') '.csv'];
+    fid = fopen(csv_file, 'w');
+
+    fprintf(fid, 'Image Name,First Moment X,First Moment Y,XF_rms,YF_rms,2XF_rms,2YF_rms,xxVar,yyVar\n');
+
+
+end
+
 
 count = 0;
 
@@ -381,6 +407,7 @@ for i = 1:length(files)
         text(50, 70, ['Second Moment in Y: ' num2str(Y2Moment)], 'Color', 'red', 'FontSize', 10);
         
         fprintf('\n')
+
         disp(['First Moment (coordinate in X): ' num2str(XMoment)])
         disp(['First Moment (coordinate in Y): ' num2str(YMoment)])
         disp(['XF_rms: ' num2str(X2Moment) ' mm'])
@@ -389,6 +416,17 @@ for i = 1:length(files)
         disp(['2YF_rms: ' num2str(2*Y2Moment) ' mm'])
         disp(['xxVar: ' num2str(X2Moment^2) ' mm'])
         disp(['yyVar: ' num2str(Y2Moment^2) ' mm'])
+
+
+        %
+        % Write to .csv
+        %
+        
+        if length(files) > 1
+
+            fprintf(fid, '%s,%f,%f,%f,%f,%f,%f,%f,%f\n', num2str(currFileName), XMoment, YMoment,X2Moment, Y2Moment, 2*X2Moment,2*Y2Moment,X2Moment^2,Y2Moment^2);
+            
+        end
 
 
         plot(edgeCoords(:, 1), edgeCoords(:, 2), 'ro-','MarkerSize',3);
@@ -407,6 +445,14 @@ for i = 1:length(files)
 
 end
 
+if length(files) > 1
+
+    %
+    % Close the CSV file
+    %
+    fclose(fid);
+
+end
 
 
 function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, numMarkers,searchDepth)
