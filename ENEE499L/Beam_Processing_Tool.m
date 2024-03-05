@@ -1,7 +1,7 @@
 
 % Author: Peter Krepkiy (pkrepkiy@umd.edu, krepkiyp@yahoo.com), 
 
-% Last edit: March 3, 2024
+% Last edit: March 5, 2024
 
 % Revision: 0
 
@@ -130,7 +130,7 @@ if length(files) > 1
     csv_file = [datestr(now,'dd_mmm_yyyy_HH_MM') '.csv'];
     fid = fopen(csv_file, 'w');
 
-    fprintf(fid, 'Image Name,First Moment X,First Moment Y,XF_rms,YF_rms,2XF_rms,2YF_rms,xxVar,yyVar\n');
+    fprintf(fid,'Image Name,First Moment X (pixel),First Moment Y (pixel),XF_rms (mm),YF_rms (mm),2XF_rms (mm),2YF_rms (mm),xxVar (mm^2),yyVar (mm^2),2(xxVar)^2 (mm^4),2(yyVar)^2 (mm^4)\n');
 
 
 end
@@ -200,8 +200,6 @@ for i = 1:length(files)
         end
         
 
-
-        
         binaryMask = grayImage < maxIntensity- (maxIntensity*thresholdMultiplier);
     
         blackImage = grayImage;
@@ -232,7 +230,6 @@ for i = 1:length(files)
         % Object / max Intensity rejection
         %
        
-
 
         %
         % Reject beam objects that are smaller than a particular length in
@@ -370,11 +367,28 @@ for i = 1:length(files)
 
         %% Calculate second moment in X and Y
 
-        X2Moment = sqrt(sum(sum(((xList-XMoment).^2) .* uint32(cropImage(yVec,:)),2))/I_0)*calX;
+        XF_rms = sqrt(sum(sum(((xList-XMoment).^2) .* uint32(cropImage(yVec,:)),2))/I_0)*calX;
 
         % Repeat for Y second moment 
-        Y2Moment = sqrt(sum(sum(((yList-YMoment).^2) .* uint32(cropImage(:,xVec)),1))/I_0)*calY;
+        YF_rms = sqrt(sum(sum(((yList-YMoment).^2) .* uint32(cropImage(:,xVec)),1))/I_0)*calY;
 
+        %% Calculate 2XF_rms and 2YF_rms
+
+        X2F_rms = 2*XF_rms;
+
+        Y2F_rms = 2*YF_rms;
+
+        %% Calculate xxVar and yyVar
+
+        xxVar = XF_rms^2;
+
+        yyVar = YF_rms^2;
+
+        %% Calculate 2sqrt(xxVar) and 2sqrt(yyVar)
+
+        Squared_xxVar_2 = 2*sqrt(xxVar);
+
+        Squared_yyVar_2 = 2*sqrt(yyVar);
 
       
         %% Plot results
@@ -397,11 +411,11 @@ for i = 1:length(files)
     
             plot(XMoment, YMoment,'gx','MarkerSize',25)
 
-            text(50, 50, ['First Moment in X: ' num2str(XMoment)], 'Color', 'red', 'FontSize', 10);
-            text(50, 30, ['First Moment in Y: ' num2str(YMoment)], 'Color', 'red', 'FontSize', 10);
-    
-            text(50, 90, ['Second Moment in X: ' num2str(X2Moment)], 'Color', 'red', 'FontSize', 10);
-            text(50, 70, ['Second Moment in Y: ' num2str(Y2Moment)], 'Color', 'red', 'FontSize', 10);
+            % text(50, 50, ['First Moment in X: ' num2str(XMoment)], 'Color', 'red', 'FontSize', 10);
+            % text(50, 30, ['First Moment in Y: ' num2str(YMoment)], 'Color', 'red', 'FontSize', 10);
+            % 
+            % text(50, 90, ['Second Moment in X: ' num2str(XF_rms)], 'Color', 'red', 'FontSize', 10);
+            % text(50, 70, ['Second Moment in Y: ' num2str(YF_rms)], 'Color', 'red', 'FontSize', 10);
 
     
             plot(edgeCoords(:, 1), edgeCoords(:, 2), 'ro-','MarkerSize',3);
@@ -412,7 +426,7 @@ for i = 1:length(files)
             plot(maxObjectX,minObjectY,'cd')
     
     
-            legend('Peak intensity','Geometric Centroid','First Moment')%,'Second Moment')
+            legend('Peak intensity','Geometric Centroid','First Moment')
     
             hold off
         
@@ -422,12 +436,21 @@ for i = 1:length(files)
 
         disp(['First Moment (coordinate in X): ' num2str(XMoment)])
         disp(['First Moment (coordinate in Y): ' num2str(YMoment)])
-        disp(['XF_rms: ' num2str(X2Moment) ' mm'])
-        disp(['YF_rms: ' num2str(Y2Moment) ' mm'])
-        disp(['2XF_rms: ' num2str(2*X2Moment) ' mm'])
-        disp(['2YF_rms: ' num2str(2*Y2Moment) ' mm'])
-        disp(['xxVar: ' num2str(X2Moment^2) ' mm'])
-        disp(['yyVar: ' num2str(Y2Moment^2) ' mm'])
+
+        disp(['XF_rms: ' num2str(XF_rms) ' mm'])
+        disp(['YF_rms: ' num2str(YF_rms) ' mm'])
+
+
+        disp(['2*XF_rms: ' num2str(X2F_rms) ' mm'])
+        disp(['2*YF_rms: ' num2str(Y2F_rms) ' mm'])
+
+
+        disp(['xxVar: ' num2str(xxVar) ' mm^2'])
+        disp(['yyVar: ' num2str(yyVar) ' mm^2'])
+
+        disp(['2(xxVar)^2: ' num2str(Squared_xxVar_2) ' mm^4'])
+        disp(['2(yyVar)^2: ' num2str(Squared_yyVar_2) ' mm^4'])
+
 
 
         %
@@ -436,7 +459,7 @@ for i = 1:length(files)
         
         if length(files) > 1
 
-            fprintf(fid, '%s,%f,%f,%f,%f,%f,%f,%f,%f\n', num2str(currFileName), XMoment, YMoment,X2Moment, Y2Moment, 2*X2Moment,2*Y2Moment,X2Moment^2,Y2Moment^2);
+            fprintf(fid, '%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n', num2str(currFileName), XMoment, YMoment,XF_rms, YF_rms,X2F_rms,Y2F_rms,xxVar,yyVar,Squared_xxVar_2, Squared_yyVar_2);
             
         end
 
