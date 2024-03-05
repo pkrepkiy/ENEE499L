@@ -22,7 +22,7 @@ close all; clear; clc
 warning('off','all')
 
 
-fprintf('Output image? (Defualt value: Y)\n')
+fprintf('Generate figures? (Default value: Y)\n')
 
 output_img = input('Y or N: ','s');
 
@@ -30,9 +30,10 @@ if isempty(output_img)
     output_img = 'Y';
 elseif (output_img ~= 'Y' && output_img ~= 'N')
 
-    error('Invalid input. Enter Y or N for image output')
+    error('Invalid input. Enter Y or N for figure output')
 
 end
+
 
 
 fprintf('\nSet the threshold multiplier. The algorithm searches for pixels that \nare lower than this threshold to form the beam object. The formula is like so: \nthreshold = maxIntensity - maxIntensity*thresholdMultiplier. \nThis value must be between 0 and 1.\n\n');
@@ -382,30 +383,41 @@ for i = 1:length(files)
         % Plotting
         %
 
-        figure(i)
-        % subplot(1,2,1), 
+        if output_img == 'Y'
+
+            figure(i)
+           
+            imshow(grayImage), title(num2str(currFileName))
         
-        imshow(grayImage), title(num2str(currFileName))
+            hold on
     
-        hold on
+            plot(xMaxCoord,yMaxCoord, 'k*', 'MarkerSize', 25);
+    
+            plot(GeometricCentroidX,GeometricCentroidY,'b+','MarkerSize',25);
+    
+            plot(XMoment, YMoment,'gx','MarkerSize',25)
 
-        plot(xMaxCoord,yMaxCoord, 'k*', 'MarkerSize', 25);
+            text(50, 50, ['First Moment in X: ' num2str(XMoment)], 'Color', 'red', 'FontSize', 10);
+            text(50, 30, ['First Moment in Y: ' num2str(YMoment)], 'Color', 'red', 'FontSize', 10);
+    
+            text(50, 90, ['Second Moment in X: ' num2str(X2Moment)], 'Color', 'red', 'FontSize', 10);
+            text(50, 70, ['Second Moment in Y: ' num2str(Y2Moment)], 'Color', 'red', 'FontSize', 10);
 
-        plot(GeometricCentroidX,GeometricCentroidY,'b+','MarkerSize',25);
-
-        plot(XMoment, YMoment,'gx','MarkerSize',25)
-
-
-        % plot(X2Moment, Y2Moment,'mv','MarkerSize',25)
+    
+            plot(edgeCoords(:, 1), edgeCoords(:, 2), 'ro-','MarkerSize',3);
+    
+            plot(minObjectX,minObjectY,'cd')
+            plot(maxObjectX,maxObjectY,'cd')
+            plot(minObjectX,maxObjectY,'cd')
+            plot(maxObjectX,minObjectY,'cd')
+    
+    
+            legend('Peak intensity','Geometric Centroid','First Moment')%,'Second Moment')
+    
+            hold off
         
+        end
 
-
-        text(50, 50, ['First Moment in X: ' num2str(XMoment)], 'Color', 'red', 'FontSize', 10);
-        text(50, 30, ['First Moment in Y: ' num2str(YMoment)], 'Color', 'red', 'FontSize', 10);
-
-        text(50, 90, ['Second Moment in X: ' num2str(X2Moment)], 'Color', 'red', 'FontSize', 10);
-        text(50, 70, ['Second Moment in Y: ' num2str(Y2Moment)], 'Color', 'red', 'FontSize', 10);
-        
         fprintf('\n')
 
         disp(['First Moment (coordinate in X): ' num2str(XMoment)])
@@ -428,19 +440,6 @@ for i = 1:length(files)
             
         end
 
-
-        plot(edgeCoords(:, 1), edgeCoords(:, 2), 'ro-','MarkerSize',3);
-
-        plot(minObjectX,minObjectY,'cd')
-        plot(maxObjectX,maxObjectY,'cd')
-        plot(minObjectX,maxObjectY,'cd')
-        plot(maxObjectX,minObjectY,'cd')
-
-
-        legend('Peak intensity','Geometric Centroid','First Moment')%,'Second Moment')
-
-        hold off
-    
     end
 
 end
