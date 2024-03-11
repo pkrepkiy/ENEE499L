@@ -1,7 +1,7 @@
 
 % Author: Peter Krepkiy (pkrepkiy@umd.edu, krepkiyp@yahoo.com), 
 
-% Last edit: March 5, 2024
+% Last edit: March 11, 2024
 
 % Revision: 0
 
@@ -28,14 +28,14 @@ output_img = input('Y or N: ','s');
 
 if isempty(output_img)
     output_img = 'Y';
-elseif (output_img ~= 'Y' && output_img ~= 'N')
+elseif ~isa(output_img,'char') | (output_img ~= 'Y' & output_img ~= 'N')
 
     error('Invalid input. Enter Y or N for figure output')
 
 end
 
 
-
+disp('---------------------------------------------------');
 fprintf('\nSet the threshold multiplier. The algorithm searches for pixels that \nare lower than this threshold to form the beam object. The formula is like so: \nthreshold = maxIntensity - maxIntensity*thresholdMultiplier. \nThis value must be between 0 and 1.\n\n');
 
 thresholdMultiplier = input('Enter intensity cutoff threshold or enter to skip (default is 1/sqrt(2)): ');
@@ -54,7 +54,7 @@ end
 
 edgeMarkerNum = 360;
 
-
+disp('---------------------------------------------------');
 fprintf('\nChange the depth of search for object (search sensitivity).\nThis value searches N pixels past\nthe first pixel with a value lower than the threshold. Increase for beam\nimages that are less dense or have more holes.\n\n')
 
 searchDepth = input('Enter search depth or enter to skip (default is 20): ');
@@ -72,6 +72,7 @@ else
     end
 end
 
+disp('---------------------------------------------------');
 fprintf('\nDefine the threshold to reject objects that have less length\nalong X and Y than the reject value. Any object that has X or Y distance\nless than N will be rejected. Increase this value if there is a lot of\nbright FOD or artifacts. Decrease for slits or smaller beams.\n\n')
 
 rejectThresholdX = input('Enter reject size threshold in X or enter to skip (default is 15): ');
@@ -113,6 +114,7 @@ calX = 0.0566; % HORIZONTAL CALIBRATION in mm/pixel
 
 
 fprintf('\n')
+disp('---------------------------------------------------');
 disp(['Searching for files in working directory ' pwd ' ...'])
 
 
@@ -125,8 +127,15 @@ files = dir(fullfile(pwd, '*.tif'));
 if length(files) > 1
 
     %
+    % Close all opened files, if any
+    %
+    fclose('all');
+
+
+    %
     % Open a .csv object for output to a CSV if more than one .tif
     %
+    
     csv_file = [datestr(now,'dd_mmm_yyyy_HH_MM') '.csv'];
     fid = fopen(csv_file, 'w');
 
@@ -153,14 +162,11 @@ for i = 1:length(files)
         fprintf('\n')
         disp(['Processing image ' num2str(currFileName) ' ...'])
 
-    
         %
         % Find max and set the initial cropped image
         %
         [maxIntensity, linearIndex] = max(grayImage(:));
         [yMaxCoord, xMaxCoord] = ind2sub(size(grayImage), linearIndex);
-
-
 
         %
         % Reject maximum intensities that are within 5 pixels of the border
