@@ -35,7 +35,21 @@ elseif ~isa(output_img,'char') | (output_img ~= 'Y' & output_img ~= 'N')
 end
 
 
+fprintf('Background subtraction and cropping? (Default value: Y)\n')
+
+back_sub_and_img_crop = input('Y or N: ','s');
+
+if isempty(back_sub_and_img_crop)
+    back_sub_and_img_crop = 'Y';
+elseif ~isa(back_sub_and_img_crop,'char') | (back_sub_and_img_crop ~= 'Y' & back_sub_and_img_crop ~= 'N')
+
+    error('Invalid input. Enter Y or N for background subtraction and crop')
+
+end
+
+
 disp('---------------------------------------------------');
+
 fprintf('\nSet the threshold multiplier. The algorithm searches for pixels that \nare lower than this threshold to form the beam object. The formula is like so: \nthreshold = maxIntensity - maxIntensity*thresholdMultiplier. \nThis value must be between 0 and 1.\n\n');
 
 thresholdMultiplier = input('Enter intensity cutoff threshold or enter to skip (default is 1/sqrt(2)): ');
@@ -52,7 +66,12 @@ else
     end
 end
 
+
+%
+% Set number of edge markers for beam outline (default 360)
+%
 edgeMarkerNum = 360;
+
 
 disp('---------------------------------------------------');
 fprintf('\nChange the depth of search for object (search sensitivity).\nThis value searches N pixels past\nthe first pixel with a value lower than the threshold. Increase for beam\nimages that are less dense or have more holes.\n\n')
@@ -162,6 +181,7 @@ for i = 1:length(files)
         fprintf('\n')
         disp(['Processing image ' num2str(currFileName) ' ...'])
 
+
         %
         % Find max and set the initial cropped image
         %
@@ -206,12 +226,18 @@ for i = 1:length(files)
         end
         
 
-        binaryMask = grayImage < maxIntensity- (maxIntensity*thresholdMultiplier);
+        if back_sub_and_img_crop == 'Y'
     
-        blackImage = grayImage;
-        
-        blackImage(binaryMask) = 0;  
+            binaryMask = grayImage < maxIntensity- (maxIntensity*thresholdMultiplier);
+    
+            blackImage = grayImage;
+    
+            blackImage(binaryMask) = 0;  
 
+        else
+            blackImage = grayImage;
+
+        end
 
 
         %
@@ -329,13 +355,20 @@ for i = 1:length(files)
         % and points outside the object are a "0"
         propInside = reshape(inside,size(blackImage,1),size(blackImage,2));
 
+
+        if back_sub_and_img_crop == 'Y'
+
         % Mask the original image with the logical array
         cropImage = grayImage .* uint16(propInside);
 
-
+        else
+            cropImage = grayImage;
+        
+        end
+        
         % Set zero values to NaN to be omitted from intensity centroid
         % calculation
-        cropImage(cropImage == 0) = NaN;
+        % cropImage(cropImage == 0) = NaN;
 
         minObjectX = min(edgeCoords(:,1));
         maxObjectX = max(edgeCoords(:,1));
@@ -351,32 +384,32 @@ for i = 1:length(files)
         %% Calculate first moment in X and Y
 
         % Create row vector from row dimension of image
-        xList = uint32(1:size(cropImage,2));
+        xList = uint64(1:size(cropImage,2));
 
         % Create column vector (transpose) from column dimension of image
-        yList = uint32((1:size(cropImage,1)))';
+        yList = uint64((1:size(cropImage,1)))';
 
         % Create vector of Y indices that are inside the beam
-        yVec = uint32(round(minObjectY):round(maxObjectY));
+        yVec = uint64(round(minObjectY):round(maxObjectY));
 
-        % Creat vector of X indices that are inside the beam
-        xVec = uint32(round(minObjectX):round(maxObjectX));
+        % Create vector of X indices that are inside the beam
+        xVec = uint64(round(minObjectX):round(maxObjectX));
 
 
         % Calculate X moment (centroid) by multiplying each row by the
         % beam value at that position, summing over each row and column,
         % dividing by sum of intensity
-        XMoment = sum(sum(xList .* uint32(cropImage(yVec,:)),2))/I_0;
+        x_avg0 = sum(sum(xList .* uint64(cropImage(yVec,:))),2)/I_0;
 
         % Repeat for Y moment (centroid)
-        YMoment = sum(sum(yList .* uint32(cropImage(:,xVec)),1))/I_0;
+        y_avg0 = sum(sum(yList .* uint64(cropImage(:,xVec)),1))/I_0;
 
         %% Calculate second moment in X and Y
 
-        XF_rms = sqrt(sum(sum(((xList-XMoment).^2) .* uint32(cropImage(yVec,:)),2))/I_0)*calX;
+        XF_rms = sqrt(sum(sum(((xList-x_avg0).^2) .* uint64(cropImage(yVec,:)),2))/I_0)*calX;
 
-        % Repeat for Y second moment 
-        YF_rms = sqrt(sum(sum(((yList-YMoment).^2) .* uint32(cropImage(:,xVec)),1))/I_0)*calY;
+        % Repeat for Y second moment
+        YF_rms = sqrt(sum(sum(((yList-y_avg0).^2) .* uint64(cropImage(:,xVec)),1))/I_0)*calY;
 
         %% Calculate 2XF_rms and 2YF_rms
 
@@ -415,14 +448,7 @@ for i = 1:length(files)
     
             plot(GeometricCentroidX,GeometricCentroidY,'b+','MarkerSize',25);
     
-            plot(XMoment, YMoment,'gx','MarkerSize',25)
-
-            % text(50, 50, ['First Moment in X: ' num2str(XMoment)], 'Color', 'red', 'FontSize', 10);
-            % text(50, 30, ['First Moment in Y: ' num2str(YMoment)], 'Color', 'red', 'FontSize', 10);
-            % 
-            % text(50, 90, ['Second Moment in X: ' num2str(XF_rms)], 'Color', 'red', 'FontSize', 10);
-            % text(50, 70, ['Second Moment in Y: ' num2str(YF_rms)], 'Color', 'red', 'FontSize', 10);
-
+            plot(x_avg0, y_avg0,'gx','MarkerSize',25)
     
             plot(edgeCoords(:, 1), edgeCoords(:, 2), 'ro-','MarkerSize',3);
     
@@ -440,11 +466,11 @@ for i = 1:length(files)
 
         fprintf('\n')
 
-        disp(['First Moment (coordinate in X): ' num2str(XMoment)])
-        disp(['First Moment (coordinate in Y): ' num2str(YMoment)])
+        disp(['First Moment (coordinate in X): ' num2str(round(x_avg0))])
+        disp(['First Moment (coordinate in Y): ' num2str(round(y_avg0))])
 
-        disp(['XF_rms: ' num2str(XF_rms) ' mm'])
-        disp(['YF_rms: ' num2str(YF_rms) ' mm'])
+        % disp(['XF_rms: ' num2str(XF_rms) ' mm'])
+        % disp(['YF_rms: ' num2str(YF_rms) ' mm'])
 
 
         disp(['2*XF_rms: ' num2str(X2F_rms) ' mm'])
@@ -454,8 +480,8 @@ for i = 1:length(files)
         disp(['xxVar: ' num2str(xxVar) ' mm^2'])
         disp(['yyVar: ' num2str(yyVar) ' mm^2'])
 
-        disp(['2(xxVar)^2: ' num2str(Squared_xxVar_2) ' mm^4'])
-        disp(['2(yyVar)^2: ' num2str(Squared_yyVar_2) ' mm^4'])
+        % disp(['2(xxVar)^2: ' num2str(Squared_xxVar_2) ' mm^4'])
+        % disp(['2(yyVar)^2: ' num2str(Squared_yyVar_2) ' mm^4'])
 
 
 
@@ -465,13 +491,17 @@ for i = 1:length(files)
         
         if length(files) > 1
 
-            fprintf(fid, '%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n', num2str(currFileName), XMoment, YMoment,XF_rms, YF_rms,X2F_rms,Y2F_rms,xxVar,yyVar,Squared_xxVar_2, Squared_yyVar_2);
+            fprintf(fid, '%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n', num2str(currFileName), y_avg0, x_avg0,XF_rms, YF_rms,X2F_rms,Y2F_rms,xxVar,yyVar,Squared_xxVar_2, Squared_yyVar_2);
             
         end
 
+        % thresholdMultiplier = thresholdMultiplier + 0.001;
+
+        end
     end
 
-end
+    % end
+
 
 if length(files) > 1
 
