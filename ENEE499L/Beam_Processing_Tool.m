@@ -1,7 +1,7 @@
 
-% Author: Peter Krepkiy (pkrepkiy@umd.edu, krepkiyp@yahoo.com), 
+% Author: Peter Krepkiy (pkrepkiy@umd.edu, krepkiyp@yahoo.com)
 
-% Last edit: March 11, 2024
+% Last edit: April 15, 2024
 
 % Revision: 0
 
@@ -12,6 +12,22 @@
 % Experiment (LSE) at the University of Maryland Institute for Research in
 % Electronics and Applied Physics
 
+% There are two modes for background subtraction and cropping:
+% MODE 1: MEAN VALUE SUBTRACTION
+%
+% This mode detects a beam object, defined by a border, takes the average
+% value of all of the pixels outside of the border, and subtracts those
+% values from the entire image.
+%
+% MODE 2: CONSTANT VALUE SUBTRACTION
+%
+% This mode subtracts the background by a constant value as specified by
+% the user, e.g. 10000
+
+
+
+
+%-------------------------------------------------------------------------
 
 %
 % Establish directories and control variables
@@ -21,113 +37,224 @@ close all; clear; clc
 
 warning('off','all')
 
+disp('---------------------------------------------------')
+fprintf('GENERATE FIGURES?\n')
 
-fprintf('Generate figures? (Default value: Y)\n')
+OUTPUT_FIG = input('Y/N [Y]: ','s');
 
-output_img = input('Y or N: ','s');
-
-if isempty(output_img)
-    output_img = 'Y';
-elseif ~isa(output_img,'char') | (output_img ~= 'Y' & output_img ~= 'N')
+if isempty(OUTPUT_FIG)
+    OUTPUT_FIG = 'Y';
+elseif ~isa(OUTPUT_FIG,'char') | (~strcmp(OUTPUT_FIG,'Y') & ~strcmp(OUTPUT_FIG,'N'))
 
     error('Invalid input. Enter Y or N for figure output')
 
 end
 
 
-fprintf('Background subtraction and cropping? (Default value: Y)\n')
 
-back_sub_and_img_crop = input('Y or N: ','s');
 
-if isempty(back_sub_and_img_crop)
-    back_sub_and_img_crop = 'Y';
-elseif ~isa(back_sub_and_img_crop,'char') | (back_sub_and_img_crop ~= 'Y' & back_sub_and_img_crop ~= 'N')
+%
+% USER INPUT BACKGROUND SUBTRACTION
+%
 
-    error('Invalid input. Enter Y or N for background subtraction and crop')
+disp('---------------------------------------------------')
+fprintf('BACKGROUND SUBTRACTION?\n')
+
+BACKGROUND_SUB = input('Y/N [Y]: ','s');
+
+
+while all(((~strcmp(BACKGROUND_SUB,'Y') & ~strcmp(BACKGROUND_SUB,'N')) & ~isempty(BACKGROUND_SUB)))
+   
+        fprintf('\nILLEGAL VALUE')
+    
+        BACKGROUND_SUB = input('\nY/N [Y]: ','s');
 
 end
 
 
+if isempty(BACKGROUND_SUB) | ...
+    isa(BACKGROUND_SUB,'char') & (BACKGROUND_SUB == 'Y')
+
+
+
+    BACKGROUND_SUB = 'Y';
+    %
+    % SPECIFY TYPE OF SUBTRACTION
+    %
+
+    disp('---------------------------------------------------') 
+    fprintf('MEAN VALUE OR CONSTANT VALUE? (MEAN or CONSTANT)\n')
+
+    subtraction_type = input('MEAN/CONST [MEAN]: ','s');
+
+    %
+    % CHECK INPUT
+    %
+    while all( ~isempty(subtraction_type) & (~isa(subtraction_type,'char') | ~strcmp(subtraction_type,'MEAN') & ~strcmp(subtraction_type,'CONST')))
+    
+        fprintf('\nInvalid input. Enter MEAN or CONSTANT for background subtraction type')
+    
+        subtraction_type = input('\nMEAN/CONST [MEAN]: ','s');
+            
+    end
+
+    if isempty(subtraction_type)
+
+        subtraction_type = 'MEAN';
+    end
+
+    if strcmp(subtraction_type,'CONST')
+
+        fprintf('\nSPECIFY CONSTANT SUBTRACTION VALUE:\n')
+
+        subtraction_value = uint32(str2double(input('INTEGER GREATER THAN ZERO: ','s')));
+
+        while isempty(subtraction_value) | size(subtraction_value) ~= 1 | subtraction_value == 0
+
+            fprintf('ILLEGAL VALUE\n')
+            subtraction_value = uint32(str2double(input('INTEGER GREATER THAN ZERO: ','s')));
+
+    
+        end
+    end
+
+end
+
+
+
+%
+% USER INPUT IMAGE CROPPING
+%
+
+disp('---------------------------------------------------')
+fprintf('IMAGE CROP?\n')
+
+
+IMG_CROP = input('Y/N [Y]: ','s');
+
+
+while all(((~strcmp(IMG_CROP,'Y') & ~strcmp(IMG_CROP,'N')) & ~isempty(IMG_CROP)))
+   
+        fprintf('\nILLEGAL VALUE')
+    
+        IMG_CROP = input('\nY/N [Y]: ','s');
+
+end
+
+
+if isempty(IMG_CROP) | ...
+    isa(IMG_CROP,'char') & (IMG_CROP == 'Y')
+
+    IMG_CROP = 'Y';
+else
+
+    IMG_CROP = 'N';
+end
+
+%
+% TODO: ADD SHAPE OR CIRCULAR CROP
+%
+
+
+
+
+
+
 disp('---------------------------------------------------');
+fprintf('SET BEAM IMAGE DETECTION SENSITIVITY. USE A HIGHER VALUE FOR HIGHER SENSITIVITY.\n')
+thresholdMultiplier = str2double(input('DETECTION SENSITIVITY BETWEEN 0 AND 1 [1/sqrt(2)]: ','s'));
 
-fprintf('\nSet the threshold multiplier. The algorithm searches for pixels that \nare lower than this threshold to form the beam object. The formula is like so: \nthreshold = maxIntensity - maxIntensity*thresholdMultiplier. \nThis value must be between 0 and 1.\n\n');
-
-thresholdMultiplier = input('Enter intensity cutoff threshold or enter to skip (default is 1/sqrt(2)): ');
-
-if isempty(thresholdMultiplier)
-    fprintf('\nUsing default value: 1/sqrt(2)\n');
-   thresholdMultiplier = 1/sqrt(2);
+if isnan(thresholdMultiplier)
+    fprintf('\nUSING DEFAULT VALUE: 1/sqrt(2)\n');
+   thresholdMultiplier = double(1/sqrt(2));
 else
 
     % Check if the input is a valid integer
-    if isnan(thresholdMultiplier) || (thresholdMultiplier >= 1) || (thresholdMultiplier <= 0)
+    while all(thresholdMultiplier >= 1 | thresholdMultiplier <= 0)
 
-        error('Invalid input. Please enter a valid number between 0 and 1.');
+        disp(thresholdMultiplier)
+        fprintf('ILLEGAL VALUE\n')
+        thresholdMultiplier = input('DETECTION SENSITIVITY BETWEEN 0 AND 1 [1/sqrt(2)]: ','s');
+
     end
 end
 
+% thresholdMultiplier = str2num(thresholdMultiplier);
+disp(thresholdMultiplier)
 
 %
-% Set number of edge markers for beam outline (default 360)
+% TODO: ADD CIRCULAR SEARCH OR OBJECT OUTLINE SEARCH
 %
-edgeMarkerNum = 360;
+
+
 
 
 disp('---------------------------------------------------');
-fprintf('\nChange the depth of search for object (search sensitivity).\nThis value searches N pixels past\nthe first pixel with a value lower than the threshold. Increase for beam\nimages that are less dense or have more holes.\n\n')
+%fprintf('\nChange the depth of search for object (search sensitivity).\nThis value searches N pixels past\nthe first pixel with a value lower than the threshold. Increase for beam\nimages that are less dense or have more holes.\n\n')
 
-searchDepth = input('Enter search depth or enter to skip (default is 20): ');
+
+
+fprintf('SET OBJECT SEARCH DEPTH.\nUSE A HIGHER VALUE FOR SPOTTY IMAGES/THOSE WITH NONUNIFORM DISTRIBUTION.\n')
+searchDepth = input('SEARCH DEPTH/SENSITIVITY [20]: ');
 
 
 if isempty(searchDepth)
-    fprintf('\nUsing default value: 20\n');
+    fprintf('\nUSING DEFAULT VALUE: 20\n');
    searchDepth = 20;
 else
 
     % Check if the input is a valid integer
     if isnan(searchDepth) || (searchDepth <= 0)
 
-        error('Invalid input. Please enter a valid number greater than 0');
+        error('INVALID INPUT. ENTER AN INTEGER GREATER THAN 0');
     end
 end
 
 disp('---------------------------------------------------');
-fprintf('\nDefine the threshold to reject objects that have less length\nalong X and Y than the reject value. Any object that has X or Y distance\nless than N will be rejected. Increase this value if there is a lot of\nbright FOD or artifacts. Decrease for slits or smaller beams.\n\n')
+%fprintf('\nDefine the threshold to reject objects that have less length\nalong X and Y than the reject value. Any object that has X or Y distance\nless than N will be rejected. Increase this value if there is a lot of\nbright FOD or artifacts. Decrease for slits or smaller beams.\n\n')
 
-rejectThresholdX = input('Enter reject size threshold in X or enter to skip (default is 15): ');
+
+fprintf('SET REJECT THRESHOLD IN X.\nREJECT ALL BEAM OBJECTS THAT ARE A SMALLER SIZE IN X.\nUSE A HIGHER VALUE FOR SLIT IMAGES')
+rejectThresholdX = input('\n\nREJECT THRESHOLD IN X [15]: ');
 
 if isempty(rejectThresholdX)
-    fprintf('\nUsing default X reject value: 15\n\n');
+    fprintf('\nUSING DEFAULT X REJECT THRESHOLD: 15\n\n');
     rejectThresholdX = 15;
 else
 
     % Check if the input is a valid integer
     if isnan(searchDepth) || (searchDepth <= 0)
 
-        error('Invalid input. Please enter a valid number greater than 0');
+        error('INVALID INPUT. ENTER AN INTEGER GREATER THAN 0');
     end
 end
 
-rejectThresholdY = input('Enter reject size threshold in Y or enter to skip (default is 15): ');
+rejectThresholdY = input('REJECT THRESHOLD IN Y [15]: ');
 
 if isempty(rejectThresholdY)
-    fprintf('\nUsing default Y reject value: 15\n');
+    fprintf('\nUSING DEFAULT Y REJECT VALUE: 15\n');
     rejectThresholdY = 15;
 else
 
     % Check if the input is a valid integer
     if isnan(searchDepth) || (searchDepth <= 0)
 
-        error('Invalid input. Please enter a valid number greater than 0');
+        error('INVALID INPUT. ENTER AN INTEGER GREATER THAN 0');
     end
 end
+
 
 calY = 0.0566; % VERTICAL CALIBRATION in mm/pixel
 
 calX = 0.0566; % HORIZONTAL CALIBRATION in mm/pixel
 
+disp('---------------------------------------------------');
 
-
+disp('CALIBRATION VALUES:')
+disp(['X: ', num2str(calX), ' mm/pixel. '])
+disp(['Y: ', num2str(calY),' mm/pixel'])
+fprintf('\n')
+disp('USE THE impixelinfo COMMAND TO INSPECT THE BEAM IMAGE')
 
 
 
@@ -163,6 +290,10 @@ if length(files) > 1
 
 end
 
+%
+% SET NUMBER OF EDGE MARKERS
+%
+edgeMarkerNum = 360;
 
 count = 0;
 
@@ -179,7 +310,7 @@ for i = 1:length(files)
         grayImage = im2gray(image);
         
         fprintf('\n')
-        disp(['Processing image ' num2str(currFileName) ' ...'])
+        disp(['PROCESSING IMAGE ' num2str(currFileName) ' ...'])
 
 
         %
@@ -224,20 +355,6 @@ for i = 1:length(files)
         
             end
         end
-        
-
-        if back_sub_and_img_crop == 'Y'
-    
-            binaryMask = grayImage < maxIntensity- (maxIntensity*thresholdMultiplier);
-    
-            blackImage = grayImage;
-    
-            blackImage(binaryMask) = 0;  
-
-        else
-            blackImage = grayImage;
-
-        end
 
 
         %
@@ -245,9 +362,7 @@ for i = 1:length(files)
         %
         threshold = maxIntensity-(maxIntensity*thresholdMultiplier);
 
-
-        edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum,searchDepth);
-
+        edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, grayImage, threshold, edgeMarkerNum,searchDepth);
 
 
         %
@@ -258,9 +373,8 @@ for i = 1:length(files)
         minObjectY = min(edgeCoords(:,2));
         maxObjectY = max(edgeCoords(:,2));
         
-        %
-        % Object / max Intensity rejection
-        %
+
+        %% Object / max Intensity rejection
        
 
         %
@@ -303,7 +417,7 @@ for i = 1:length(files)
         
                 [yMaxCoord, xMaxCoord] = ind2sub(size(smoothedImage), linearIndex);
         
-                edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, blackImage, threshold, edgeMarkerNum,searchDepth);
+                edgeCoords = createEdgeMarkers(xMaxCoord, yMaxCoord, SubtractedImage, threshold, edgeMarkerNum,searchDepth);
         
         
                 %
@@ -318,26 +432,23 @@ for i = 1:length(files)
         
         end
 
-        [X,Y]=meshgrid(1:size(blackImage,2), 1:size(blackImage,1));
+        [X,Y]=meshgrid(1:size(grayImage,2), 1:size(grayImage,1));
 
 
-        inside = inpolygon(X(:), Y(:), edgeCoords(:,1), edgeCoords(:,2));        
+        inside = inpolygon(X(:), Y(:), edgeCoords(:,1), edgeCoords(:,2));      
 
-
-        % Calculate the Geometric centroid in X and Y
+        %% Calculate the Geometric centroid in X and Y
         GeometricCentroidX = mean(X(inside));
         GeometricCentroidY = mean(Y(inside));
 
 
-        %
-        % Create new edge coordinates based on the geometric centroid (to
-        % prevent shadows)
-        %
+        %% Create new edge coordinates based on the geometric centroid (to prevent shadows)
 
-        edgeCoords = createEdgeMarkers(GeometricCentroidX, GeometricCentroidY, blackImage, threshold, edgeMarkerNum,searchDepth);
+
+        edgeCoords = createEdgeMarkers(GeometricCentroidX, GeometricCentroidY, grayImage, threshold, edgeMarkerNum,searchDepth);
         
 
-        [X,Y]=meshgrid(1:size(blackImage,2), 1:size(blackImage,1));
+        [X,Y]=meshgrid(1:size(grayImage,2), 1:size(grayImage,1));
 
 
         % Find which points are inside the object's outline
@@ -353,28 +464,57 @@ for i = 1:length(files)
 
         % This creates a logical array- points inside the object are a "1"
         % and points outside the object are a "0"
-        propInside = reshape(inside,size(blackImage,1),size(blackImage,2));
+        propInside = reshape(inside,size(grayImage,1),size(grayImage,2));
 
+        %% DO BACKGROUND SUBTRACTION
+        %
+        if strcmp(BACKGROUND_SUB,'Y')
+            
+            %
+            % CONST type subtracted was already ascertained in the setup
+            %
+            if strcmp(subtraction_type,'MEAN')
 
-        if back_sub_and_img_crop == 'Y'
+                %
+                % SUBTRACT THE AVERAGE OF ALL OF THE VALUES OUTSIDE OF
+                % THE BEAM OBJECT
+                %
+                subtraction_value = mean(mean(grayImage.*uint16(~propInside)));
 
-        % Mask the original image with the logical array
-        cropImage = grayImage .* uint16(propInside);
+            end
+
+            SubtractedImage = grayImage - uint16(subtraction_value);
+            disp(['SUBTRACTION: ' num2str(subtraction_value)]);
 
         else
-            cropImage = grayImage;
-        
+            SubtractedImage = grayImage;
+
         end
-        
-        % Set zero values to NaN to be omitted from intensity centroid
-        % calculation
-        % cropImage(cropImage == 0) = NaN;
+
+
+        if strcmp(IMG_CROP,'Y')
+
+        %
+        % Mask the subtracted image with the logical array for calculations
+        %
+        cropImage = SubtractedImage .* uint16(propInside);
 
         minObjectX = min(edgeCoords(:,1));
         maxObjectX = max(edgeCoords(:,1));
         minObjectY = min(edgeCoords(:,2));
         maxObjectY = max(edgeCoords(:,2));
 
+
+
+        else
+            cropImage = SubtractedImage;
+
+            minObjectX = 1;
+            maxObjectX = size(grayImage,1);
+            minObjectY = 1;
+            maxObjectY = size(grayImage,2);
+        
+        end
 
 
         % Total pixel intensity sums
@@ -433,14 +573,14 @@ for i = 1:length(files)
         %% Plot results
 
         %
-        % Plotting
+        % PLOTTING
         %
 
-        if output_img == 'Y'
+        if OUTPUT_FIG == 'Y'
 
             figure(i)
            
-            imshow(grayImage), title(num2str(currFileName))
+            imshow(SubtractedImage), title(num2str(currFileName))
         
             hold on
     
@@ -466,8 +606,8 @@ for i = 1:length(files)
 
         fprintf('\n')
 
-        disp(['First Moment (coordinate in X): ' num2str(round(x_avg0))])
-        disp(['First Moment (coordinate in Y): ' num2str(round(y_avg0))])
+        disp(['FIRST MOMENT IN X): ' num2str(round(x_avg0))])
+        disp(['FIRST MOMENT IN Y): ' num2str(round(y_avg0))])
 
         % disp(['XF_rms: ' num2str(XF_rms) ' mm'])
         % disp(['YF_rms: ' num2str(YF_rms) ' mm'])
@@ -486,16 +626,16 @@ for i = 1:length(files)
 
 
         %
-        % Write to .csv
+        % WRITE TO .csv IF MORE THAN ONE IMAGE
         %
-        
+
         if length(files) > 1
+    
+            fprintf('\nWRITING TO .CSV ....')
 
             fprintf(fid, '%s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n', num2str(currFileName), y_avg0, x_avg0,XF_rms, YF_rms,X2F_rms,Y2F_rms,xxVar,yyVar,Squared_xxVar_2, Squared_yyVar_2);
             
         end
-
-        % thresholdMultiplier = thresholdMultiplier + 0.001;
 
         end
     end
@@ -513,7 +653,7 @@ if length(files) > 1
 end
 
 
-function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, numMarkers,searchDepth)
+function outCoords = createEdgeMarkers(xCoord, yCoord, subtractedImage, threshold, numMarkers,searchDepth)
 
 
         % Iterate over angles to evenly divide the circle
@@ -534,16 +674,16 @@ function outCoords = createEdgeMarkers(xCoord, yCoord, blackImage, threshold, nu
     
 
             % Loop to move along the direction until the threshold condition is met
-            while ((newCoord(2) + searchDepth*dy <= size(blackImage,1) && newCoord(2) + searchDepth*dy > 1)) && ((newCoord(1) + searchDepth*dx <= size(blackImage,2)) && (newCoord(1) + searchDepth*dx > 1))
+            while ((newCoord(2) + searchDepth*dy <= size(subtractedImage,1) && newCoord(2) + searchDepth*dy > 1)) && ((newCoord(1) + searchDepth*dx <= size(subtractedImage,2)) && (newCoord(1) + searchDepth*dx > 1))
 
                 % Check current position
-                if blackImage(round(newCoord(2)), round(newCoord(1))) < threshold
+                if subtractedImage(round(newCoord(2)), round(newCoord(1))) < threshold
 
                     % Check up to 20 indices in front
                     checkVar = newCoord + [dx, dy];
                     count = 1;
 
-                    while count < searchDepth && blackImage(round(checkVar(2)), round(checkVar(1))) < threshold
+                    while count < searchDepth && subtractedImage(round(checkVar(2)), round(checkVar(1))) < threshold
                         checkVar = checkVar + [dx, dy];
                         count = count + 1;
                     end
