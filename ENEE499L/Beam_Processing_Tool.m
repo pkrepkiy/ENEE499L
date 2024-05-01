@@ -1,7 +1,7 @@
 
 % Author: Peter Krepkiy (pkrepkiy@umd.edu, krepkiyp@yahoo.com)
 
-% Last edit: April 15, 2024
+% Last edit: May 1, 2024
 
 % Revision: 0
 
@@ -24,11 +24,23 @@
 % This mode subtracts the background by a constant value as specified by
 % the user, e.g. 10000
 
-
-% TODO: Manipulate MEAN subtraction to attain a subtraction value of BackgndR2 = 3175
+% The CROPPING Mode can be selected ON and OFF
 %
+% The cropping mode will create a beam object from the maximum intensity
+% point of the image. The sensitivity of the cropping will depend on 
+% the IMAGE DETECTION SENSITIVITY which is a ratio that defines how far 
+% the algorithm will search from the maximum in all directions to define
+% the outline of the object. That is, it defines the threshold to stop
+% searching radially outwards in each direction.
+% 
+% The SEARCH DEPTH is another sensitivity parameter that defines the 
+% distance from the first point that is below the the threshold, to 
+% STOP searching. Use a higher search depth for beam images that are
+% very spotty/chunky or that have non-uniform distributions.
 %
-
+% Lastly, the REJECT THRESHOLDs in X and Y will reject beam objects that
+% are too small in X or Y. Use higher values for images with a lot of 
+% bright artifacts/spots, 
 
 
 %-------------------------------------------------------------------------
@@ -40,6 +52,7 @@
 close all; clear; clc
 
 warning('off','all')
+
 
 disp('---------------------------------------------------')
 fprintf('GENERATE FIGURES?\n')
@@ -242,9 +255,53 @@ else
 end
 
 %
-% TODO: ADD SHAPE OR CIRCULAR CROP
+% Search all .tif files in the working directory
 %
+files = dir(fullfile(pwd, '*.tif'));
 
+
+if length(files) > 1
+
+    %
+    % Close all opened files, if any
+    %
+    fclose('all');
+
+
+    disp('---------------------------------------------------')
+    fprintf('ENTER EXPERIMENT DATE:\n')
+    
+    %
+    % SANITIZE INPUT 
+    %
+    Exp_date = input('MM_DD_YYYY: ','s');
+    Exp_date(isspace(Exp_date)) = [];
+
+    while isempty(Exp_date)
+
+
+
+    fprintf('ILLEGAL VALUE\n')
+
+    Exp_date = input('MM_DD_YYYY: ','s');
+    Exp_date(isspace(Exp_date)) = [];
+    
+
+
+    end
+
+
+    %
+    % Open a .csv object for output to a CSV if more than one .tif
+    %
+    
+    csv_file = [Exp_date '.csv'];
+    fid = fopen(csv_file, 'w');
+
+    fprintf(fid,'Image Name,First Moment X (pixel),First Moment Y (pixel),XF_rms (mm),YF_rms (mm),2XF_rms (mm),2YF_rms (mm),xxVar (mm^2),yyVar (mm^2),2(xxVar)^2 (mm^4),2(yyVar)^2 (mm^4)\n');
+
+
+end
 
 
 
@@ -267,32 +324,6 @@ fprintf('\n')
 disp('---------------------------------------------------');
 disp(['Searching for files in working directory ' pwd ' ...'])
 
-
-%
-% Search all .tif files in the working directory
-%
-files = dir(fullfile(pwd, '*.tif'));
-
-
-if length(files) > 1
-
-    %
-    % Close all opened files, if any
-    %
-    fclose('all');
-
-
-    %
-    % Open a .csv object for output to a CSV if more than one .tif
-    %
-    
-    csv_file = [datestr(now,'dd_mmm_yyyy_HH_MM') '.csv'];
-    fid = fopen(csv_file, 'w');
-
-    fprintf(fid,'Image Name,First Moment X (pixel),First Moment Y (pixel),XF_rms (mm),YF_rms (mm),2XF_rms (mm),2YF_rms (mm),xxVar (mm^2),yyVar (mm^2),2(xxVar)^2 (mm^4),2(yyVar)^2 (mm^4)\n');
-
-
-end
 
 %
 % SET NUMBER OF EDGE MARKERS
@@ -699,7 +730,7 @@ for i = 1:length(files)
         end
     end
 
-    % end
+    %end
 
 
 if length(files) > 1
