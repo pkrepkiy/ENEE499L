@@ -187,12 +187,6 @@ if isempty(IMG_CROP) | ...
     % thresholdMultiplier = str2num(thresholdMultiplier);
     disp(thresholdMultiplier)
     
-    %
-    % TODO: ADD CIRCULAR SEARCH OR OBJECT OUTLINE SEARCH
-    %
-    
-    
-    
     
     disp('---------------------------------------------------');
     %fprintf('\nChange the depth of search for object (search sensitivity).\nThis value searches N pixels past\nthe first pixel with a value lower than the threshold. Increase for beam\nimages that are less dense or have more holes.\n\n')
@@ -582,25 +576,6 @@ for i = 1:length(files)
 
         % Total pixel intensity sums
         I_0 = sum(sum(cropImage(:,:)));
-
-
-        %
-        % THE PROBLEM HERE IS THAT ZEROS ARE BEING COUNTED TOWARDS THE
-        % MOMENTS
-        %
-        % IGNORE
-        %
-
-
-
-        %
-        % I FIGURED OUT THE ISSUE
-        % THIS WAS ONE OF THE BIGGEST ISSUES BRUH
-        % X IS A TYPE UNSIGNED INT 64 BIT, SO WHEN
-        % THE FIRST MOMENT WAS SUBTRACTED FROM THE XLIST
-        % THE RESULT WAS ZERO!!!!! SINCE NEGATIVE VALUES 
-        % WERE NOT ALLOWED. TO FIX THIS, CHANGE TO SIGNED INT!
-        %
 
         %% Calculate first moment in X and Y
 
