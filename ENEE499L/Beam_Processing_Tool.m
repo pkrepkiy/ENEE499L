@@ -1,9 +1,9 @@
 
 % Author: Peter Krepkiy (pkrepkiy@umd.edu, krepkiyp@yahoo.com)
 
-% Last edit: May 1, 2024
+% Last edit: May 2, 2024
 
-% Revision: 0
+% Revision: 1
 
 % Description:
 
@@ -189,9 +189,7 @@ if isempty(IMG_CROP) | ...
     
     
     disp('---------------------------------------------------');
-    %fprintf('\nChange the depth of search for object (search sensitivity).\nThis value searches N pixels past\nthe first pixel with a value lower than the threshold. Increase for beam\nimages that are less dense or have more holes.\n\n')
-    
-    
+
     
     fprintf('SET OBJECT SEARCH DEPTH.\nUSE A HIGHER VALUE FOR SPOTTY IMAGES/THOSE WITH NONUNIFORM DISTRIBUTION.\n')
     searchDepth = input('SEARCH DEPTH/SENSITIVITY [20]: ');
