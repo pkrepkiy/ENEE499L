@@ -549,7 +549,7 @@ for i = 1:length(files)
         %
         % Mask the subtracted image with the logical array for calculations
         %
-        cropImage = SubtractedImage .* uint16(propInside);
+        cropImage = uint16(SubtractedImage) .* uint16(propInside);
 
         minObjectX = min(edgeCoords(:,1));
         maxObjectX = max(edgeCoords(:,1));
